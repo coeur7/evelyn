@@ -1,0 +1,9 @@
+method repto
+
+[Setters]
+2
+Aromatisse, Musharna, Oranguru, Dusclops, Cresselia, Cofagrigus, Bronzong, Uxie, M-Audino, Carbink, Gothitelle
+
+[Abusers]
+4
+Reuniclus, M-Slowbro, Escavalier, M-Camerupt, M-Ampharos, Ferrothorn, Snorlax, M-Mawile, Araquanid, Gastrodon, Sylveon, Incineroar, Hariyama
