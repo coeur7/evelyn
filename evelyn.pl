@@ -3,6 +3,7 @@
 BEGIN {
     use strict;
     use warnings;
+    use POSIX;
     
     our $method;
     
@@ -35,7 +36,7 @@ sub read_roster {
                 my @candidates = split(', ', $1);
                 push(@roster, [$category, $n, \@candidates]);
                 $state = 0; 
-            } #foreach my $c (@candidates) { print "$c, "; } print "\n";
+            }
         }
     }
     
@@ -50,6 +51,7 @@ sub roll {
     
     my @roster = @_;
     
+    print "[EVELYN] Rolling according to the '".$method."' method.\n";
     foreach $c (@roster) {
         my $category = $c->[0];
         my $n        = $c->[1];
@@ -58,8 +60,17 @@ sub roll {
         
         printf $file "%s:\t", $category;
         foreach my $k (1..$n) {
-            push (@roll, $candidates[get_rand($#candidates+1)]);
+            if($method eq "repto") {
+                push (@roll, floor(get_rand($#candidates+1)));
+            }
+            elsif($method eq "coeur") {
+                do { 
+                    $a = floor(get_rand($#candidates+1));
+                } while ((grep(/^$a$/, @roll))); 
+                push (@roll, $a);
+            }
         }
+        @roll = map {$candidates[$_]} @roll;
         foreach my $r (@roll) { print $file "$r "; } print $file "\n";
     }
     
