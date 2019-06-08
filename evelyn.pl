@@ -31,7 +31,7 @@ sub read_roster {
             $a =~ m/^\s*([0-9])+\s*\n/g;
             if (defined $1) { $n = $1; $state = 2; }
         } elsif($state == 2) {
-            $a =~ m/^\s*(.+)\s*\n/g;
+            $a =~ m/^\s*(.+)\s*\n*/g;
             if (defined $1) {
                 my @candidates = split(', ', $1);
                 push(@roster, [$category, $n, \@candidates]);
@@ -58,7 +58,7 @@ sub roll {
         my @candidates = @{$c->[2]};
         my @roll;
         
-        printf $file "%s:\t", $category;
+        printf $file "%-32s", $category.":";
         foreach my $k (1..$n) {
             if($method eq "repto") {
                 push (@roll, floor(get_rand($#candidates+1)));
@@ -71,7 +71,7 @@ sub roll {
             }
         }
         @roll = map {$candidates[$_]} @roll;
-        foreach my $r (@roll) { print $file "$r "; } print $file "\n";
+        foreach my $r (@roll) { print $file "$r, "; } print $file "\n";
     }
     
     close($file);
