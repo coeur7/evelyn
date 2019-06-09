@@ -11,7 +11,7 @@ Installation instructions (Mac OS X / Linux):
 
 Troubleshooting:
 * you may need to install perl (duh) and/or libc6 as dependencies before this runs
-* do not use line breaks in roster.txt to separate the lists of mons; put them all on the same line
+* do not use line breaks in roster.txt to separate the lists of mons in a given box; put them all on the same line; the program stops reading candidates after the first line break it encounters there
 
 Currently accepted roll methods:
 * repto (roll with duplicates)
