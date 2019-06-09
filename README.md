@@ -1,7 +1,7 @@
 # evelyn
 EVELYN (Essential Variety Effector Lateralizing Your Noncompliance) is a Battle Facility Randoms roll assistant.
 
-Installation instructions (Mac OS X / Linux):
+Installation instructions (Mac OS X / Linux; Windows users are currently on their own, although there should be a way):
 * download archive
 * extract archive to folder
 * open terminal in that folder
