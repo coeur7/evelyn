@@ -6,6 +6,11 @@ BEGIN {
     use POSIX;
     
     our $method;
+    our $verbosity = 1;                     # 0 is silent; other levels undefined rn. TODO: configuration file
+    our $roster_filename  = "./roster.txt"; # roster file containing information pertaining directly to roll/method
+    our $output_filename  = "./roll.txt";   # contains the roll after execution
+    our $runlog_filename  = "./runlog.txt"; # contains all the rolls of the run TODO
+    our $details_filename = "";             # set details, read from roster file TODO
     
     srand();
 }
@@ -21,25 +26,19 @@ sub read_roster {
     my @roster;
     my $category, $n, $state = -1;
     while (my $a = <$file>) {
-        if($state == -1) {
-            $a =~ m/^\s*method\s*(.+)\s*\n/g;
-            if (defined $1) { $method = $1; $state = 0; }
-        } elsif($state == 0) {
-            $a =~ m/^\[\s*(.+)\s*\]\s*\n/g;
-            if (defined $1) { $category = $1; $state = 1; }
-        } elsif($state == 1) {
-            $a =~ m/^\s*([0-9])+\s*\n/g;
-            if (defined $1) { $n = $1; $state = 2; }
-        } elsif($state == 2) {
-            $a =~ m/^\s*(.+)\s*\n*/g;
-            if (defined $1) {
-                my @candidates = split(', ', $1);
-                push(@roster, [$category, $n, \@candidates]);
-                $state = 0; 
-            }
+        if($a =~ m/^\s*method\s*(.+)\s*\n/g) {
+            $method = $1;
+        } elsif($a =~ m/^\s*details in\s*(.+)\s*\n/g) {
+            $details_filename = $1;
+        } elsif($a =~ m/^\[\s*(.+)\s*\]\s*\n/g) {
+            $category = $1;
+        } elsif($a =~ m/^\s*([0-9])+\s*\n/g) {
+            $n = $1;
+        } elsif($a =~ m/^\s*(.+)\s*\n*/g) {
+            my @candidates = split(', ', $1);
+            push(@roster, [$category, $n, \@candidates]);
         }
-    }
-    
+    }    
     close($file);
     
     return @roster;
@@ -52,31 +51,47 @@ sub roll {
     my @roster = @_;
     
     print "[EVELYN] Rolling according to the '".$method."' method.\n";
-    foreach $c (@roster) {
-        my $category = $c->[0];
-        my $n        = $c->[1];
-        my @candidates = @{$c->[2]};
+    foreach $group (@roster) {
+        my $category = $group->[0];
+        my $n        = $group->[1];
+        my @candidates = @{$group->[2]};
         my @roll;
+        my $roll_is_valid = 0;
         
         printf $file "%-32s", $category.":";
-        foreach my $k (1..$n) {
-            if($method eq "repto") {
-                push (@roll, floor(get_rand($#candidates+1)));
+        if ($verbosity) { print $category.": "; }
+        
+        do {
+            @roll = ();
+            foreach my $k (1..$n) {
+                if($method eq "repto" || $method eq "asterisk") {
+                    push (@roll, floor(get_rand($#candidates+1)));
+                }
+                elsif($method eq "coeur" || $method eq "asterisk-nodupl") {
+                    do { 
+                        $a = floor(get_rand($#candidates+1));
+                    } while ((grep(/^$a$/, @roll))); 
+                    push (@roll, $a);
+                }
             }
-            elsif($method eq "coeur") {
-                do { 
-                    $a = floor(get_rand($#candidates+1));
-                } while ((grep(/^$a$/, @roll))); 
-                push (@roll, $a);
-            }
-        }
-        @roll = map {$candidates[$_]} @roll;
-        foreach my $r (@roll) { print $file "$r, "; } print $file "\n";
+        
+            @roll = map {$candidates[$_]} @roll;
+            if($method eq "asterisk" || $method eq "asterisk-nodupl") {
+                if (grep(/\*/, @roll)) { $roll_is_valid = 1; }
+            } else { $roll_is_valid = 1; } # always
+        } while (!($roll_is_valid));
+        
+        foreach my $r (@roll) { print $file "$r, "; if ($verbosity) { print "$r, "; } } 
+        print $file "\n"; if ($verbosity) { print "\n"; }
     }
-    
     close($file);
 }
 
+sub main {
+    my @roster = read_roster("./roster.txt");
+    roll("./roll.txt", @roster);
+    
+    return 0;
+}
 
-my @roster = read_roster("./roster.txt");
-roll("./roll.txt", @roster);
+main();
