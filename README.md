@@ -11,6 +11,7 @@ Installation instructions (Mac OS X / Linux; Windows users are currently on thei
 
 Troubleshooting:
 * you may need to install perl (duh) and/or libc6 as dependencies before this runs
+* Perl is case-sensitive, "Coeur" and "COEUR" and "coeur" and "cOEuR" are not interchangeable. Make sure to be consistent (until I might implement "user-friendly" normalization "under the hood", but it's not there yet).
 * do not use line breaks in roster.txt to separate the lists of mons in a given box; put them all on the same line; the program stops reading candidates after the first line break it encounters there
 * run "./evelyn.pl -?" for further usage information
 
