@@ -115,10 +115,9 @@ sub rate {
     }
     close($file);
     
-    if($mode == 1 && $ns{$new_key} != 0) {
+    if($mode && $ns{$new_key} != 0) {
         $ratings{$new_key} = ($ratings{$new_key} + $new_val / $ns{$new_key}) * $ns{$new_key}/($ns{$new_key}+1); $ns{$new_key}++;
-        print "DEBUG MODE 1: ".$ratings{$new_key}."\n";
-    } else { $ratings{$new_key} = $new_val; $ns{$new_key}++; print "DEBUG MODE 0: ".$ratings{$new_key}."\n";}
+    } else { $ratings{$new_key} = $new_val; $ns{$new_key} = ($mode) ? $ns{$new_key} + 1 : 1;}
     
     open(my $file, ">", $filename) || die "[FATAL] Could not create or open ratings file '".$filename."':".$!;
     foreach my $k (keys %ratings) {
