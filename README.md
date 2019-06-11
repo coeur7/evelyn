@@ -32,3 +32,4 @@ Rating System:
 Planned features:
 * Quick generation of pasteables from larger roster by selecting four sets
 * Log rolls for an entire run
+* make the "-g" flag prompt for confirmation if a ratings file already exists (probably going to be hotfixed; "for now, be careful")
