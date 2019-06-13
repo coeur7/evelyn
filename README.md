@@ -23,6 +23,11 @@ Currently accepted roll methods:
 
 If you want your method added, describe it to me and I might at least try to implement it. No guarantees, no refunds.
 
+(Semi-)Automatically generated team pastes:
+* Include a line "details in roster_details.txt" (or choose a different filename) within roster.txt, ideally right below the "method" line
+* Write roster_details.txt as a paste of your entire roster
+* Invoke "./evelyn.pl -d SET1 SET2 ..." (the SETS have to match nicknames, or if a set isn't nicknamed, species name); the output goes to team.txt.
+
 Rating System: 
 * EVELYN now allows you to rate your flunkies. Set up your roster file (if you haven't already), then run "./evelyn.pl -g" to generate a new ratings file automatically, which will contain entries of the form "SET, AVERAGE GRADE, TIMES USED" (without commas; the latter two initialized to zero, of course).
 * From here, you can run "./evelyn.pl -r SET GRADE" (replacing SET and GRADE with the appropriate string and number) to add a grade, which will be re-averaged with the current grade, and TIMES USED incremented by 1.
