@@ -14,6 +14,7 @@ BEGIN {
     our $runlog_filename  = "./runlog.txt"; # contains all the rolls of the run TODO
     our $ratings_filename = "./ratings.txt";# contains all the ratings
     our $details_filename = "";             # set details, read from roster file TODO
+    our $paste_out_filename = "./team.txt"; # paste output filename
     our $max_roll_attempts = 20000;
     
     srand();
@@ -129,24 +130,50 @@ sub rate {
 }
 
 sub main {
-    # Help mode
+    # Usage help mode
     if($ARGV[0] =~ m/^-[A-Z|a-z|?]*\?/g) {
         print "-?                  Usage help\n";
-        print "-g                  Generate ratings file for roster\n";
+        print "-d SET1 SET2 ...    Generate new team paste from roster details file, using SET1 etc.\n";
+        print "-g                  Generate new ratings file for roster\n";
         print "-r  SPECIES RATING  Rate SPECIES with RATING (added and averaged)\n";
         print "-r0 SPECIES RATING  Rate SPECIES with RATING (reset rating to new value)\n";
         print "-v                  Print current version\n";
         return 0;
     }
     
-    # Version mode
+    # Version information mode
     if($ARGV[0] =~ m/^-[A-Z|a-z|?]*v/g) {
         print "EVELYN version ".$EVELYN_version."\n";
         return 0;
     }
     
+    # Export mode
+    if($ARGV[0] =~ m/^-d$/g) {
+        my @roster = read_roster($roster_filename);
+        open(my $file, "<", $details_filename) || die "[FATAL] Could not create or open roster details file '".$details_filename."':".$!;
+        open(my $out_file, ">", $paste_out_filename) || die "[FATAL] Could not create or open paste output file '".$paste_out_filename."':".$!;
+        foreach my $set (@ARGV[1..$#ARGV]) {
+            my $mode = 0;
+            while(my $a = <$file>) {
+                if($a =~ m/^\s*(.+?)\s*[(|@].*\n$/g && $1 eq $set) {
+                    $mode = 1;
+                }
+                if($mode) { print $out_file $a; }
+                if($a =~ m/^\s*\n$/g) {
+                    $mode = 0;
+                }
+            }
+            seek ($file, 0, 0);
+        }
+        return 0;
+    }
+    
     # Generate ratings file for roster
     if($ARGV[0] =~ m/^-g$/g) {
+        if (-f $ratings_filename) {
+            print "[WARNING] Ratings file '".$ratings_filename."' already exists; please manually delete it and retry.\n";
+            return 0;
+        }
         my @roster = read_roster($roster_filename);
         open(my $file, ">", $ratings_filename) || die "[FATAL] Could not create or open ratings file '".$filename."':".$!;
         foreach my $group (@roster) {
