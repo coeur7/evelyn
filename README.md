@@ -7,7 +7,7 @@ Installation instructions (Mac OS X / Linux; Windows users are currently on thei
 * open terminal in that folder
 * enter command "chmod 744 ./evelyn.pl" (only before first-ever running) to set the executable flag on the script
 * enter "./evelyn.pl" and check roll.txt
-* edit roster.txt as you see fit, and have fun playing randoms
+* edit roster.txt as you see fit, and have fun playing randoms.
 
 Troubleshooting:
 * you may need to install perl (duh) and/or libc6 as dependencies before this runs
