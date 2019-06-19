@@ -7,7 +7,7 @@ BEGIN {
     use Scalar::Util qw(looks_like_number);
     use Data::Dumper;                               # DEBUG
     
-    our $EVELYN_version = "2.0.0-stable";
+    our $EVELYN_version = "2.0.1-stable";
     
     our $verbosity = 1;                             # 0 is silent; other levels undefined rn. TODO: configuration file
     
@@ -33,12 +33,12 @@ sub read_roster {
 
     my %roster;
     my $category;
-    while (my $a = <$file>) {
-        if($a =~ m/^\s*details in\s*(.+)\s*\n/g) {
+    while (my $line = <$file>) {
+        if($line =~ m/^\s*details in\s*(.+)\s*\n/g) {
             $details_filename = $1;
-        } elsif($a =~ m/^\[\s*(.+)\s*\]\s*\n/g) {
+        } elsif($line =~ m/^\[\s*(.+)\s*\]\s*\n/g) {
             $category = $1;
-        } elsif($a =~ m/^\s*(.+)\s*\n*/g) {
+        } elsif($line =~ m/^\s*(.+)\s*\n*/g) {
             my @candidates = split(', ', $1);
             $roster{$category} = \@candidates;
         }
@@ -52,14 +52,14 @@ sub read_archetypes {
     open(my $file, "<", $archetypes_filename) || die "[FATAL] Could not read archetypes information file '".$archetypes_filename."':".$!;
     
     my %archetypes, @weighted_array, $current_arch, $method;
-    while(my $a = <$file>) {
-        if($a =~ m/^\s*archetype\s+(.+?)\s*\n/g) {
+    while(my $line = <$file>) {
+        if($line =~ m/^\s*archetype\s+(.+?)\s*\n/g) {
             $current_arch = $1;
-        } elsif($a =~ m/^\s*method\s+(.+?)\s*\n/g) {
+        } elsif($line =~ m/^\s*method\s+(.+?)\s*\n/g) {
             $method = $1;
-        } elsif($a =~ m/^\s*incidence\s+([0-9]+)\s*\n/g) {
+        } elsif($line =~ m/^\s*incidence\s+([0-9]+)\s*\n/g) {
             foreach my $k (1..int($1)) { push(@weighted_array, $current_arch); }
-        } elsif($a =~ m/^\s*roll\s+([0-9]+)\s*(.+?)\s*\n/g) {
+        } elsif($line =~ m/^\s*roll\s+([0-9]+)\s*(.+?)\s*\n/g) {
             push(@{$archetypes{$current_arch}}, [$method, $1, [split(", ", $2)]]);
         }
     }
@@ -74,8 +74,8 @@ sub roll {
     my $roll_number = 0;
     
     if(open(my $runlog_file, "<", $runlog_filename)) {
-        while(my $a = <$runlog_file>) {
-            if($a =~ m/^Roll #([0-9]+)\n$/g) { $roll_number = int($1) + 1; }
+        while(my $line = <$runlog_file>) {
+            if($line =~ m/^Roll #([0-9]+)/g) { $roll_number = int($1) + 1; }
         }
         close($runlog_file);
     } else { $roll_number = 1; }    
@@ -109,6 +109,7 @@ sub roll {
                 if($method eq "repto" || $method eq "asterisk") {
                     push (@roll, get_rand($#candidates+1));
                 } elsif ($method eq "coeur" || $method eq "asterisk-nodupl") {
+                    my $a;
                     do {
                         $a = get_rand($#candidates+1);
                     } while (grep(/^$a$/, @roll));
@@ -148,12 +149,12 @@ sub export_team {
     open(my $out_file, ">", $paste_out_filename) || die "[FATAL] Could not create or open paste output file '".$paste_out_filename."':".$!;
     foreach my $set (@ARGV[1..$#ARGV]) {
         my $mode = 0;
-        while(my $a = <$details_file>) {
-            if($a =~ m/^\s*(.+?)\s*[(|@].*\n$/g && $1 eq $set) {
+        while(my $line = <$details_file>) {
+            if($line =~ m/^\s*(.+?)\s*[(|@].*\n$/g && $1 eq $set) {
                 $mode = 1;
             }
             if($mode) { print $out_file $a; }
-            if($a =~ m/^\s*\n$/g) {
+            if($line =~ m/^\s*\n$/g) {
                 $mode = 0;
             }
         }
@@ -194,8 +195,8 @@ sub rate {
     my %ns;
     
     open(my $file, "<", $filename) || die "[FATAL] Could not create or open ratings file '".$filename."':".$!;
-    while (my $a = <$file>) {
-        $a =~ m/^(.+?)\s+(.+)\s+([0-9]+)\s*\n$/g;
+    while (my $line = <$file>) {
+        $line =~ m/^(.+?)\s+(.+)\s+([0-9]+)\s*\n$/g;
         if(defined $1 && looks_like_number($2) && looks_like_number($3)) {
             $ratings{$1} = $2;
             $ns{$1}      = $3;
@@ -218,12 +219,13 @@ sub rate {
 
 sub get_random_archetype {
     my $arr = shift @_;
-    return $arr->[get_rand($#{$arr})+1];
+    print Dumper $arr;
+    return $arr->[get_rand($#{$arr})];
 }
 
 sub main {
     # Usage help mode
-    if($ARGV[0] =~ m/^-[A-Z|a-z|?]*\?/g) {
+    if($ARGV[0] =~ m/^-[A-Z|a-z|?]*\?/g) { # TODO: archetype roll info (also in readme)
         print "-?                  Usage help\n";
         print "-d SET1 SET2 ...    Generate new team paste from roster details file, using SET1 etc.\n";
         print "-g                  Generate new ratings file for roster\n";
@@ -265,6 +267,7 @@ sub main {
 
     # Roll mode
     my %archetype_data = %{read_archetypes()};
+    print Dumper $archetype_data{"random_arch_info"};
     my $roster         = read_roster();
     my $arch = defined $ARGV[0] ? $ARGV[0] : get_random_archetype($archetype_data{"random_arch_info"});
     
