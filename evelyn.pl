@@ -219,7 +219,6 @@ sub rate {
 
 sub get_random_archetype {
     my $arr = shift @_;
-    print Dumper $arr;
     return $arr->[get_rand($#{$arr})];
 }
 
@@ -267,7 +266,6 @@ sub main {
 
     # Roll mode
     my %archetype_data = %{read_archetypes()};
-    print Dumper $archetype_data{"random_arch_info"};
     my $roster         = read_roster();
     my $arch = defined $ARGV[0] ? $ARGV[0] : get_random_archetype($archetype_data{"random_arch_info"});
     
