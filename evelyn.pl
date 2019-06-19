@@ -5,18 +5,19 @@ BEGIN {
     use warnings;
     use POSIX;
     use Scalar::Util qw(looks_like_number);
+    use Data::Dumper;                               # DEBUG
     
-    our $EVELYN_version = "1.6";
+    our $EVELYN_version = "2.0.0-stable";
     
-    our $method;                            # Supported atm: repto, coeur, asterisk, asterisk-nodupl
-    our $verbosity = 1;                     # 0 is silent; other levels undefined rn. TODO: configuration file
+    our $verbosity = 1;                             # 0 is silent; other levels undefined rn. TODO: configuration file
     
-    our $roster_filename  = "./roster.txt"; # roster file containing information pertaining directly to roll/method
-    our $roll_filename    = "./roll.txt";   # contains the roll after execution
-    our $runlog_filename  = "./runlog.txt"; # contains all the rolls of the run TODO
-    our $ratings_filename = "./ratings.txt";# contains all the ratings
-    our $details_filename = "";             # set details, read from roster file
-    our $paste_out_filename = "./team.txt"; # paste output filename
+    our $archetypes_filename  = "./archetypes.txt";
+    our $roster_filename      = "./roster.txt";     # roster file containing information pertaining directly to roll/method
+    our $roll_filename        = "./roll.txt";       # contains the roll after execution
+    our $runlog_filename      = "./runlog.txt";     # contains all the rolls of the run
+    our $ratings_filename     = "./ratings.txt";    # contains all the ratings
+    our $details_filename     = "";                 # set details, read from roster file
+    our $paste_out_filename   = "./team.txt";       # paste output filename
     
     our $max_roll_attempts = 20000;
     
@@ -24,37 +25,52 @@ BEGIN {
 }
 
 sub get_rand {
-    return rand(shift @_);
+    return floor(rand(shift @_));
 }
 
 sub read_roster {
-    my $filename = shift @_;
-    open(my $file, "<", $filename) || die "[FATAL] Could not read roster information file '".$filename."':".$!;
+    open(my $file, "<", $roster_filename) || die "[FATAL] Could not read roster information file '".$roster_filename."':".$!;
 
-    my @roster;
-    my $category, $n, $state = -1;
+    my %roster;
+    my $category;
     while (my $a = <$file>) {
-        if($a =~ m/^\s*method\s*(.+)\s*\n/g) {
-            $method = $1;
-        } elsif($a =~ m/^\s*details in\s*(.+)\s*\n/g) {
+        if($a =~ m/^\s*details in\s*(.+)\s*\n/g) {
             $details_filename = $1;
         } elsif($a =~ m/^\[\s*(.+)\s*\]\s*\n/g) {
             $category = $1;
-        } elsif($a =~ m/^\s*([0-9])+\s*\n/g) {
-            $n = $1;
         } elsif($a =~ m/^\s*(.+)\s*\n*/g) {
             my @candidates = split(', ', $1);
-            push(@roster, [$category, $n, \@candidates]);
+            $roster{$category} = \@candidates;
         }
     }    
     close($file);
     
-    return @roster;
+    return \%roster;
+}
+
+sub read_archetypes {
+    open(my $file, "<", $archetypes_filename) || die "[FATAL] Could not read archetypes information file '".$archetypes_filename."':".$!;
+    
+    my %archetypes, @weighted_array, $current_arch, $method;
+    while(my $a = <$file>) {
+        if($a =~ m/^\s*archetype\s+(.+?)\s*\n/g) {
+            $current_arch = $1;
+        } elsif($a =~ m/^\s*method\s+(.+?)\s*\n/g) {
+            $method = $1;
+        } elsif($a =~ m/^\s*incidence\s+([0-9]+)\s*\n/g) {
+            foreach my $k (1..int($1)) { push(@weighted_array, $current_arch); }
+        } elsif($a =~ m/^\s*roll\s+([0-9]+)\s*(.+?)\s*\n/g) {
+            push(@{$archetypes{$current_arch}}, [$method, $1, [split(", ", $2)]]);
+        }
+    }
+    
+    return {"roll_info" => \%archetypes, "random_arch_info" => \@weighted_array};
 }
 
 sub roll {
-    my $filename    = shift @_;
-    my @roster      = @_;
+    my $arch_name   = shift @_;
+    my $args        = shift @_;
+    my %roster      = %{shift @_};
     my $roll_number = 0;
     
     if(open(my $runlog_file, "<", $runlog_filename)) {
@@ -62,59 +78,58 @@ sub roll {
             if($a =~ m/^Roll #([0-9]+)\n$/g) { $roll_number = int($1) + 1; }
         }
         close($runlog_file);
-    } else {$roll_number = 1; }    
+    } else { $roll_number = 1; }    
     
-    open(my $roll_file, ">", $filename) || die "[FATAL] Could not create or open roll output file '".$filename."':".$!;
+    open(my $roll_file, ">", $roll_filename)      || die "[FATAL] Could not create or open roll output file '".$filename."':".$!;
     open(my $runlog_file, ">>", $runlog_filename) || die "[FATAL] Could not create or open run log file '".$runlog_filename."':".$!;
     
     my @print_targets = ($roll_file, $runlog_file);
     if ($verbosity) { push(@print_targets, STDOUT); }
     
-    print "[EVELYN] Rolling according to the '".$method."' method.\n";
-    
     foreach my $target (@print_targets) {
         print $target "-"x80, "\n";
-        print $target "Roll #".$roll_number."\n";
+        print $target "Roll #".$roll_number." -- Archetype: ".$arch_name."\n";
     }
     
-    foreach $group (@roster) {
-        my $category = $group->[0];
-        my $n        = $group->[1];
-        my @candidates = @{$group->[2]};
-        my @roll;
-        my $roll_is_valid = 0;
-        my $i = 0;
+    foreach my $roll (@{$args}) {
+        my $method      = $roll->[0];
+        my $n           = $roll->[1];
+        my $categories  = $roll->[2];
         
-        do {
+        my @candidates  = ();
+        my @category_strings = ();
+        foreach my $category (@{$categories}) {
+            push(@candidates, @{$roster{$category}});
+            push(@category_strings, $category);
+        }
+        
+        for (my $i = 0, $roll_is_valid = 0; $i <= $max_roll_attempts && !$roll_is_valid; $i++) {
             @roll = ();
             foreach my $k (1..$n) {
                 if($method eq "repto" || $method eq "asterisk") {
-                    push (@roll, floor(get_rand($#candidates+1)));
-                }
-                elsif($method eq "coeur" || $method eq "asterisk-nodupl") {
-                    do { 
-                        $a = floor(get_rand($#candidates+1));
-                    } while ((grep(/^$a$/, @roll))); 
-                    push (@roll, $a);
+                    push (@roll, get_rand($#candidates+1));
+                } elsif ($method eq "coeur" || $method eq "asterisk-nodupl") {
+                    do {
+                        $a = get_rand($#candidates+1);
+                    } while (grep(/^$a$/, @roll));
+                    push(@roll, $a);
                 }
             }
-        
+            
             @roll = map {$candidates[$_]} @roll;
             if($method eq "asterisk" || $method eq "asterisk-nodupl") {
-                if (grep(/\*/, @roll)) { $roll_is_valid = 1; }
+                if(grep(/\*/, @roll)) { $roll_is_valid = 1; }
             } else { $roll_is_valid = 1; } # always
-            
-            $i++;
-            if ($i > $max_roll_attempts) { die "Tried ".$max_roll_attempts." rolls; none were valid by the method in use.\n"; }
-        } while (! $roll_is_valid);
+            if ($i == $max_roll_attempts) { die "Tried ".$max_roll_attempts." rolls; none were valid by the method in use.\n"; }
+        }
         
         foreach my $target (@print_targets) {
-            printf $target "%-32s", $category.":";
+            printf $target "%-40s", join("/", @category_strings).":";
             foreach my $r(@roll) { print $target "$r, "; }
             print $target "\n";
         }
-    }
-    
+    }    
+  
     foreach my $target (@print_targets) {
         print $target "-"x80, "\n";
     }
@@ -150,14 +165,14 @@ sub export_team {
 
 sub generate_ratings_file {
     if (-f $ratings_filename) {
-        print "[WARNING] Ratings file '".$ratings_filename."' already exists; no action taken.\n(To create a new ratings file, please delete the existing one manually.) \n";
+        print "[WARNING] Ratings file '".$ratings_filename."' already exists; no action taken.\n(To create a new ratings file, please delete the existing file first.)\n";
         return 0;
     }
-    my @roster = read_roster($roster_filename);
+    my %roster = %{read_roster()};
     open(my $file, ">", $ratings_filename) || die "[FATAL] Could not create or open ratings file '".$filename."':".$!;
-    foreach my $group (@roster) {
-        foreach my $k (@{$group->[2]}) {
-            print $file $k." 0 0\n";
+    foreach my $k (keys %roster) {
+        foreach my $m (@{$roster{$k}}) {
+            print $file $m." 0 0\n";
         }
     }
     close($file);
@@ -189,8 +204,8 @@ sub rate {
     close($file);
     
     if($mode && $ns{$new_key} != 0) {
-        $ratings{$new_key} = ($ratings{$new_key} + $new_val / $ns{$new_key}) * $ns{$new_key}/($ns{$new_key}+1); $ns{$new_key}++;
-    } else { $ratings{$new_key} = $new_val; $ns{$new_key} = ($mode) ? $ns{$new_key} + 1 : 1;}
+        $ratings{$new_key} = ($ratings{$new_key} + $new_val / $ns{$new_key}) * $ns{$new_key}/($ns{$new_key}+1); $ns{$new_key}++;  # re-average
+    } else { $ratings{$new_key} = $new_val; $ns{$new_key} = ($mode) ? $ns{$new_key} + 1 : 1;}                                     # or set anew
     
     open(my $file, ">", $filename) || die "[FATAL] Could not create or open ratings file '".$filename."':".$!;
     foreach my $k (keys %ratings) {
@@ -201,15 +216,21 @@ sub rate {
     return 0;
 }
 
+sub get_random_archetype {
+    my $arr = shift @_;
+    return $arr->[get_rand($#{$arr})+1];
+}
+
 sub main {
     # Usage help mode
     if($ARGV[0] =~ m/^-[A-Z|a-z|?]*\?/g) {
         print "-?                  Usage help\n";
         print "-d SET1 SET2 ...    Generate new team paste from roster details file, using SET1 etc.\n";
         print "-g                  Generate new ratings file for roster\n";
-        print "-r  SPECIES RATING  Rate SPECIES with RATING (added and averaged)\n";
+        print "-r  SPECIES RATING  Rate SPECIES with RATING (added and re-averaged)\n";
         print "-r0 SPECIES RATING  Rate SPECIES with RATING (reset rating to new value)\n";
         print "-v                  Print current version\n";
+        print "\n(For tech support, you know where to find the esteemed user Coeur7)\n";
         return 0;
     }
     
@@ -221,7 +242,7 @@ sub main {
     
     # Export mode
     if($ARGV[0] =~ m/^-d$/g) {
-        my @roster = read_roster($roster_filename);
+        my $roster = read_roster(); # only to read the details filename. Can't we do that more elegantly?
         export_team();
         return 0;
     }
@@ -243,9 +264,11 @@ sub main {
     }
 
     # Roll mode
-    my @roster = read_roster($roster_filename);
-    roll($roll_filename, @roster);
+    my %archetype_data = %{read_archetypes()};
+    my $roster         = read_roster();
+    my $arch = defined $ARGV[0] ? $ARGV[0] : get_random_archetype($archetype_data{"random_arch_info"});
     
+    roll($arch, $archetype_data{"roll_info"}->{$arch}, $roster);
     return 0;
 }
 
