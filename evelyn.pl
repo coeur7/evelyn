@@ -5,27 +5,41 @@ BEGIN {
     use warnings;
     use POSIX;
     use Scalar::Util qw(looks_like_number);
+    use List::Util   qw(min max);
     use Data::Dumper;                               # DEBUG
-    
-    our $EVELYN_version = "2.0.1-stable";
-    
-    our $verbosity = 1;                             # 0 is silent; other levels undefined rn. TODO: configuration file
-    
-    our $archetypes_filename  = "./archetypes.txt";
-    our $roster_filename      = "./roster.txt";     # roster file containing information pertaining directly to roll/method
-    our $roll_filename        = "./roll.txt";       # contains the roll after execution
-    our $runlog_filename      = "./runlog.txt";     # contains all the rolls of the run
-    our $ratings_filename     = "./ratings.txt";    # contains all the ratings
-    our $details_filename     = "";                 # set details, read from roster file
-    our $paste_out_filename   = "./team.txt";       # paste output filename
-    
-    our $max_roll_attempts = 20000;
-    
+                                                    # "these algorithms were weak. my data is dumped."    
     srand();
 }
 
+# Global vars
+
+    # Internals.
+    my $EVELYN_version = "2.0.2-stable";
+    my $term_width = 90;                           # conveniently imposing. Term::Size::Any would do, but requires users to run CPAN.
+    
+    # [Operational Details]
+    my $verbosity = 1;                             # 0 is silent; other levels undefined rn. TODO: configuration file
+    my $max_roll_attempts = 20000; 
+    
+    # [File Paths]
+    my $archetypes_filename  = "./archetypes.txt";
+    my $roster_filename      = "./roster.txt";     # roster file containing information pertaining directly to roll/method
+    my $roll_filename        = "./roll.txt";       # contains the roll after execution
+    my $runlog_filename      = "./runlog.txt";     # contains all the rolls of the run
+    my $ratings_filename     = "./ratings.txt";    # contains all the ratings
+    my $details_filename     = "";                 # set details, read from roster file
+    my $paste_out_filename   = "./team.txt";       # paste output filename
+
+    
+# --------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 sub get_rand {
     return floor(rand(shift @_));
+}
+
+sub get_random_archetype {
+    my $arr = shift @_;
+    return $arr->[get_rand($#{$arr})];
 }
 
 sub read_roster {
@@ -87,7 +101,7 @@ sub roll {
     if ($verbosity) { push(@print_targets, STDOUT); }
     
     foreach my $target (@print_targets) {
-        print $target "-"x80, "\n";
+        print $target "-"x$term_width, "\n";
         print $target "Roll #".$roll_number." -- Archetype: ".$arch_name."\n";
     }
     
@@ -105,7 +119,7 @@ sub roll {
         
         for (my $i = 0, $roll_is_valid = 0; $i <= $max_roll_attempts && !$roll_is_valid; $i++) {
             @roll = ();
-            foreach my $k (1..$n) {
+            foreach my $k (1..min($n, $#candidates)) {
                 if($method eq "repto" || $method eq "asterisk") {
                     push (@roll, get_rand($#candidates+1));
                 } elsif ($method eq "coeur" || $method eq "asterisk-nodupl") {
@@ -124,15 +138,19 @@ sub roll {
             if ($i == $max_roll_attempts) { die "Tried ".$max_roll_attempts." rolls; none were valid by the method in use.\n"; }
         }
         
+        # preformat
+        foreach my $k (1..floor($#roll/4)) {
+            $roll[$k*4] = "\n".(" "x40).$roll[$k*4];
+        }
         foreach my $target (@print_targets) {
             printf $target "%-40s", join("/", @category_strings).":";
-            foreach my $r(@roll) { print $target "$r, "; }
-            print $target "\n";
+            printf $target join(", ", @roll);
+            printf $target "\n";
         }
     }    
   
     foreach my $target (@print_targets) {
-        print $target "-"x80, "\n";
+        print $target "-"x$term_width, "\n";
     }
     
     close($roll_file);
@@ -215,11 +233,6 @@ sub rate {
     close($file);
     
     return 0;
-}
-
-sub get_random_archetype {
-    my $arr = shift @_;
-    return $arr->[get_rand($#{$arr})];
 }
 
 sub main {
