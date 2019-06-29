@@ -14,7 +14,7 @@ BEGIN {
 # Global vars
 
     # Internals.
-    my $EVELYN_version = "2.0.2-stable";
+    my $EVELYN_version = "2.0.3-stable";
     my $term_width = 90;                           # conveniently imposing. Term::Size::Any would do, but requires users to run CPAN.
     
     # [Operational Details]
@@ -171,7 +171,7 @@ sub export_team {
             if($line =~ m/^\s*(.+?)\s*[(|@].*\n$/g && $1 eq $set) {
                 $mode = 1;
             }
-            if($mode) { print $out_file $a; }
+            if($mode) { printf $out_file $line; }
             if($line =~ m/^\s*\n$/g) {
                 $mode = 0;
             }
